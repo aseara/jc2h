@@ -1,4 +1,4 @@
-// Package plugindemo a demo plugin.
+// Package plugin a demo plugin.
 package plugin
 
 import (
