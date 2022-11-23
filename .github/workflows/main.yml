@@ -67,7 +67,7 @@ jobs:
       - name: Lint and Tests
         run: make
 
-      - name: Run tests with Yaegi
-        run: make yaegi_test
-        env:
-          GOPATH: ${{ github.workspace }}/go
+#      - name: Run tests with Yaegi
+#        run: make yaegi_test
+#        env:
+#          GOPATH: ${{ github.workspace }}/go
