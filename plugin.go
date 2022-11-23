@@ -1,5 +1,5 @@
 // Package plugindemo a demo plugin.
-package plugindemo
+package plugin
 
 import (
 	"bytes"
@@ -30,7 +30,7 @@ type Demo struct {
 }
 
 // New created a new Demo plugin.
-func New(ctx context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
+func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
 	if len(config.Headers) == 0 {
 		return nil, fmt.Errorf("headers cannot be empty")
 	}

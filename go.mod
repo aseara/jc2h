@@ -1,3 +1,3 @@
-module github.com/traefik/plugindemo
+module github.com/aseara/traek-jwt-plugin
 
 go 1.19
