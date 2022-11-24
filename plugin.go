@@ -87,18 +87,19 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if !j.config.CheckCookie && !j.config.CheckHeader {
 		log.Println("jwt.ServeHTTP no need to check cookie or header, pass through")
 		j.next.ServeHTTP(rw, req)
+		return
 	}
 
 	t := getToken(req, j.config)
 	if len(t) == 0 {
-		log.Println("jwt.ServeHTTP jwt token is nil", http.StatusInternalServerError)
+		log.Println("jwt.ServeHTTP jwt token is nil")
 		redirectToLogin(j.config, rw, req)
 		return
 	}
 
 	c, err := checkToken(t, j.key)
 	if err != nil || !c {
-		log.Println("jwt.ServeHTTP token valid false", http.StatusInternalServerError, err)
+		log.Println("jwt.ServeHTTP token valid false", err)
 		redirectToLogin(j.config, rw, req)
 		return
 	}
@@ -156,9 +157,9 @@ func checkToken(t string, key any) (bool, error) {
 		fmt.Println("jwt.ServeHTTP token is either expired or not active yet")
 	}
 
-	if token.Valid && token.Method != jwt.SigningMethodRS256 {
-		return false, fmt.Errorf("invalid sign method: expect rs256, get %v", token.Method)
-	}
+	// if token.Valid && token.Method != jwt.SigningMethodRS256 {
+	//	 return false, fmt.Errorf("invalid sign method: expect rs256, get %v", token.Method)
+	// }
 
 	return token.Valid, err
 }
@@ -166,9 +167,8 @@ func checkToken(t string, key any) (bool, error) {
 func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 	var b strings.Builder
 	b.WriteString(c.SsoLoginUrl)
-	b.WriteString("?ReturnUrl=https://")
-	b.WriteString(req.Host)
-	b.WriteString(req.RequestURI)
+	b.WriteString("?ReturnUrl=")
+	b.WriteString(req.URL.String())
 
 	location := b.String()
 	log.Println("jwt.ServeHTTP redirect to:", location)
@@ -179,7 +179,7 @@ func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 	_, err := rw.Write([]byte(http.StatusText(status)))
 
 	if err != nil {
-		log.Println("jwt.ServeHTTP redirect err:", http.StatusInternalServerError, err)
+		log.Println("jwt.ServeHTTP redirect err:", err)
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 	}
 }
