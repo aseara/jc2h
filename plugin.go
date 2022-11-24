@@ -2,23 +2,17 @@
 package plugin
 
 import (
-	"bytes"
 	"context"
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/hmac"
-	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log"
-	"math/big"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
+
+	"github.com/golang-jwt/jwt/v4"
 )
 
 // Config the plugin configuration.
@@ -28,7 +22,7 @@ type Config struct {
 	CheckHeader       bool   `json:"checkHeader,omitempty"`
 	HeaderName        string `json:"headerName,omitempty"`
 	HeaderValuePrefix string `json:"headerValuePrefix,omitempty"`
-	PublicKey         string `json:"publicKey,omitempty"`
+	SignKey           string `json:"signKey,omitempty"`
 	SsoLoginUrl       string `json:"ssoLoginUrl,omitempty"`
 	InjectHeader      string `json:"injectHeader,omitempty"`
 }
@@ -61,13 +55,13 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
-	if (config.CheckHeader || config.CheckCookie) && len(config.PublicKey) == 0 {
-		return nil, fmt.Errorf("publicKey cannot be empty when checkCookie or checkHeader is true")
+	if (config.CheckHeader || config.CheckCookie) && len(config.SignKey) == 0 {
+		return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
 	}
 
-	k, err := parseKey(config.PublicKey)
+	k, err := parseKey(config.SignKey)
 	if err != nil {
-		return nil, fmt.Errorf("publicKey is not valid: %v", err)
+		return nil, fmt.Errorf("signKey is not valid: %v", err)
 	}
 
 	return &JwtPlugin{
@@ -147,97 +141,18 @@ func getToken(req *http.Request, c *Config) (t string) {
 	return
 }
 
-type JwtHeader struct {
-	Alg  string   `json:"alg"`
-	Kid  string   `json:"kid"`
-	Typ  string   `json:"typ"`
-	Cty  string   `json:"cty"`
-	Crit []string `json:"crit"`
-}
+func checkToken(t string, key any) (bool, error) {
+	token, err := jwt.Parse(t, func(token *jwt.Token) (interface{}, error) {
+		return key, nil
+	})
 
-var supportedHeaderNames = map[string]struct{}{"alg": {}, "kid": {}, "typ": {}, "cty": {}, "crit": {}}
-
-type jwt struct {
-	Plaintext []byte
-	Signature []byte
-	Header    JwtHeader
-	Payload   map[string]interface{}
-}
-
-func checkToken(t string, k any) (c bool, err error) {
-	jwt, err := extractToken(t)
-	if err != nil {
-		return
+	if errors.Is(err, jwt.ErrTokenMalformed) {
+		log.Println("jwt.ServeHTTP jwt token is malformed")
+	} else if errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet) {
+		fmt.Println("jwt.ServeHTTP token is either expired or not active yet")
 	}
 
-	if err = verifySignature(jwt, k); err != nil {
-		return
-	}
-
-	expInt, err := strconv.ParseInt(fmt.Sprint(jwt.Payload["exp"]), 10, 64)
-	if err != nil || expInt < time.Now().Unix() {
-		return false, fmt.Errorf("token is expired")
-	}
-
-	nbfInt, err := strconv.ParseInt(fmt.Sprint(jwt.Payload["nbf"]), 10, 64)
-	if err != nil || nbfInt > time.Now().Add(1*time.Minute).Unix() {
-		return false, fmt.Errorf("token not valid yet")
-	}
-
-	return true, nil
-}
-
-func extractToken(t string) (*jwt, error) {
-	parts := strings.Split(t, ".")
-	if len(parts) != 3 {
-		log.Println("jwt.ServeHTTP invalid token format, expected 3 parts")
-		return nil, fmt.Errorf("invalid token format")
-	}
-	header, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
-		return nil, err
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return nil, err
-	}
-	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
-	if err != nil {
-		return nil, err
-	}
-
-	jwtToken := jwt{
-		Plaintext: []byte(t[:len(parts[0])+len(parts[1])+1]),
-		Signature: signature,
-	}
-
-	err = json.Unmarshal(header, &jwtToken.Header)
-	if err != nil {
-		return nil, err
-	}
-
-	d := json.NewDecoder(bytes.NewBuffer(payload))
-	d.UseNumber()
-	err = d.Decode(&jwtToken.Payload)
-	if err != nil {
-		return nil, err
-	}
-
-	return &jwtToken, nil
-}
-
-func verifySignature(jwt *jwt, key any) error {
-	for _, h := range jwt.Header.Crit {
-		if _, ok := supportedHeaderNames[h]; !ok {
-			return fmt.Errorf("unsupported header: %s", h)
-		}
-	}
-	// Look up the algorithm
-	a, ok := tokenAlgorithms[jwt.Header.Alg]
-	if !ok {
-		return fmt.Errorf("unknown JWS algorithm: %s", jwt.Header.Alg)
-	}
-	return a.verify(key, a.hash, jwt.Plaintext, jwt.Signature)
+	return token.Valid, err
 }
 
 func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
@@ -259,91 +174,4 @@ func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 		log.Println("jwt.ServeHTTP redirect err:", http.StatusInternalServerError, err)
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 	}
-}
-
-type tokenVerifyFunction func(key interface{}, hash crypto.Hash, payload []byte, signature []byte) error
-type tokenVerifyAsymmetricFunction func(key interface{}, hash crypto.Hash, digest []byte, signature []byte) error
-
-// jwtAlgorithm describes a JWS 'alg' value
-type tokenAlgorithm struct {
-	hash   crypto.Hash
-	verify tokenVerifyFunction
-}
-
-// tokenAlgorithms is the known JWT algorithms
-var tokenAlgorithms = map[string]tokenAlgorithm{
-	"RS256": {crypto.SHA256, verifyAsymmetric(verifyRSAPKCS)},
-	"RS384": {crypto.SHA384, verifyAsymmetric(verifyRSAPKCS)},
-	"RS512": {crypto.SHA512, verifyAsymmetric(verifyRSAPKCS)},
-	"PS256": {crypto.SHA256, verifyAsymmetric(verifyRSAPSS)},
-	"PS384": {crypto.SHA384, verifyAsymmetric(verifyRSAPSS)},
-	"PS512": {crypto.SHA512, verifyAsymmetric(verifyRSAPSS)},
-	"ES256": {crypto.SHA256, verifyAsymmetric(verifyECDSA)},
-	"ES384": {crypto.SHA384, verifyAsymmetric(verifyECDSA)},
-	"ES512": {crypto.SHA512, verifyAsymmetric(verifyECDSA)},
-	"HS256": {crypto.SHA256, verifyHMAC},
-	"HS384": {crypto.SHA384, verifyHMAC},
-	"HS512": {crypto.SHA512, verifyHMAC},
-}
-
-// errSignatureNotVerified is returned when a signature cannot be verified.
-func verifyHMAC(key interface{}, hash crypto.Hash, payload []byte, signature []byte) error {
-	macKey, ok := key.([]byte)
-	if !ok {
-		return fmt.Errorf("incorrect symmetric key type")
-	}
-	mac := hmac.New(hash.New, macKey)
-	if _, err := mac.Write(payload); err != nil {
-		return err
-	}
-	sum := mac.Sum([]byte{})
-	if !hmac.Equal(signature, sum) {
-		return fmt.Errorf("token verification failed (HMAC)")
-	}
-	return nil
-}
-
-func verifyAsymmetric(verify tokenVerifyAsymmetricFunction) tokenVerifyFunction {
-	return func(key interface{}, hash crypto.Hash, payload []byte, signature []byte) error {
-		h := hash.New()
-		_, err := h.Write(payload)
-		if err != nil {
-			return err
-		}
-		return verify(key, hash, h.Sum([]byte{}), signature)
-	}
-}
-
-func verifyRSAPKCS(key interface{}, hash crypto.Hash, digest []byte, signature []byte) error {
-	publicKeyRsa := key.(*rsa.PublicKey)
-	if err := rsa.VerifyPKCS1v15(publicKeyRsa, hash, digest, signature); err != nil {
-		return fmt.Errorf("token verification failed (RSAPKCS)")
-	}
-	return nil
-}
-
-func verifyRSAPSS(key interface{}, hash crypto.Hash, digest []byte, signature []byte) error {
-	publicKeyRsa, ok := key.(*rsa.PublicKey)
-	if !ok {
-		return fmt.Errorf("incorrect public key type")
-	}
-	if err := rsa.VerifyPSS(publicKeyRsa, hash, digest, signature, nil); err != nil {
-		return fmt.Errorf("token verification failed (RSAPSS)")
-	}
-	return nil
-}
-
-func verifyECDSA(key interface{}, _ crypto.Hash, digest []byte, signature []byte) error {
-	publicKeyEcdsa, ok := key.(*ecdsa.PublicKey)
-	if !ok {
-		return fmt.Errorf("incorrect public key type")
-	}
-	r, s := &big.Int{}, &big.Int{}
-	n := len(signature) / 2
-	r.SetBytes(signature[:n])
-	s.SetBytes(signature[n:])
-	if ecdsa.Verify(publicKeyEcdsa, digest, r, s) {
-		return nil
-	}
-	return fmt.Errorf("token verification failed (ECDSA)")
 }
