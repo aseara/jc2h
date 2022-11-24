@@ -11,7 +11,8 @@ import (
 
 // Config the plugin configuration.
 type Config struct {
-	Headers map[string]string `json:"headers,omitempty"`
+	CheckCookie bool              `json:"checkCookie,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
 }
 
 // CreateConfig creates the default plugin configuration.
