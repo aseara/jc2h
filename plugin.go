@@ -55,13 +55,17 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
-	if (config.CheckHeader || config.CheckCookie) && len(config.SignKey) == 0 {
-		return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
-	}
+	var k any
+	if config.CheckHeader || config.CheckCookie {
+		if len(config.SignKey) == 0 {
+			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
+		}
 
-	k, err := parseKey(config.SignKey)
-	if err != nil {
-		return nil, fmt.Errorf("signKey is not valid: %v", err)
+		var err error
+		k, err = parseKey(config.SignKey)
+		if err != nil {
+			return nil, fmt.Errorf("signKey is not valid: %v", err)
+		}
 	}
 
 	return &JwtPlugin{
@@ -150,6 +154,10 @@ func checkToken(t string, key any) (bool, error) {
 		log.Println("jwt.ServeHTTP jwt token is malformed")
 	} else if errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet) {
 		fmt.Println("jwt.ServeHTTP token is either expired or not active yet")
+	}
+
+	if token.Valid && token.Method != jwt.SigningMethodRS256 {
+		return false, fmt.Errorf("invalid sign method: expect rs256, get %v", token.Method)
 	}
 
 	return token.Valid, err
