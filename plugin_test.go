@@ -9,13 +9,13 @@ import (
 	plugin "github.com/aseara/traek-jwt-plugin"
 )
 
-func TestDemo(t *testing.T) {
+func TestJwt(t *testing.T) {
 	cfg := plugin.CreateConfig()
 	// cfg.Headers["X-Host"] = "[[.Host]]"
 	// cfg.Headers["X-Method"] = "[[.Method]]"
 	// cfg.Headers["X-URL"] = "[[.URL]]"
 	// cfg.Headers["X-URL"] = "[[.URL]]"
-	// cfg.Headers["X-Jwt"] = "test"
+	// cfg.Headers["X-JwtPlugin"] = "test"
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
@@ -37,7 +37,7 @@ func TestDemo(t *testing.T) {
 	assertHeader(t, req, "X-Host", "localhost")
 	assertHeader(t, req, "X-URL", "http://localhost")
 	assertHeader(t, req, "X-Method", "GET")
-	assertHeader(t, req, "X-Jwt", "test")
+	assertHeader(t, req, "X-JwtPlugin", "test")
 }
 
 func assertHeader(t *testing.T, req *http.Request, key, expected string) {
