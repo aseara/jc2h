@@ -6,29 +6,47 @@ This repository includes a traefik plugin, `jwt`, It can check jwt from cookie o
 
 Start with command
 ```yaml
-command:
-  - --experimental.plugins.traefik-jwt-middleware.modulename=github.com/aseara/traefik-jwt-plugin
-  - --experimental.plugins.traefik-jwt-middleware.version=v0.1.0
+# Static configuratio
+experimental:
+  plugins:
+    traefik-jwt-middleware:
+      moduleName: github.com/aseara/traefik-jwt-plugin
+      version: v0.1.0
 ```
+
+#
 
 Activate plugin in your config
 
 ```yaml
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: jwt-auth
-spec:
-  plugin:
-    traefik-jwt-middleware:
-      queryParam: token
-      secret: secret
+# Dynamic configuration
+
+http:
+  routers:
+    my-router:
+      rule: host(`demo.localhost`)
+      service: service-foo
+      entryPoints:
+        - web
+      middlewares:
+        - my-plugin
+
+  services:
+    service-foo:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:5000
+
+  middlewares:
+    my-plugin:
+      plugin:
+        traefik-jwt-middleware:
+          queryParam: token
+          secret: secret
 ```
 
 #
-## Configuration documentation
-
-Supported configurations per header
+Supported parameter
 
 | Setting   | Allowed values | Description |
 | :--       | :--            | :--         |
