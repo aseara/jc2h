@@ -22,7 +22,7 @@ type Config struct {
 	HeaderName        string `json:"headerName,omitempty"`
 	HeaderValuePrefix string `json:"headerValuePrefix,omitempty"`
 	SignKey           string `json:"signKey,omitempty"`
-	SsoLoginURL       string `json:"ssoLoginURL ,omitempty"`
+	SsoLoginURL       string `json:"ssoLoginUrl ,omitempty"`
 	InjectHeader      string `json:"injectHeader,omitempty"`
 }
 
@@ -63,7 +63,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		var err error
 		k, err = parseKey(config.SignKey)
 		if err != nil {
-			return nil, fmt.Errorf("signKey is not valid: %v", err.Error())
+			return nil, fmt.Errorf("signKey is not valid: %w", err)
 		}
 	}
 
