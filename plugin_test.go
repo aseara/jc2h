@@ -2,13 +2,14 @@ package plugin_test
 
 import (
 	"context"
-	"github.com/golang-jwt/jwt/v4"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v4"
 
 	plugin "github.com/aseara/traek-jwt-plugin"
 )

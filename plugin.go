@@ -111,7 +111,6 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func parseKey(p string) (any, error) {
-
 	if block, rest := pem.Decode([]byte(p)); block != nil {
 		if len(rest) > 0 {
 			return nil, fmt.Errorf("extra data after a PEM certificate block in publicKey")
@@ -176,7 +175,6 @@ func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 	rw.WriteHeader(http.StatusTemporaryRedirect)
 	rw.Header().Set("Location", location)
 	_, err := rw.Write([]byte(http.StatusText(http.StatusTemporaryRedirect)))
-
 	if err != nil {
 		log.Println("jwt.ServeHTTP redirect err:", err)
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
