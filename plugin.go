@@ -173,10 +173,9 @@ func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 	location := b.String()
 	log.Println("jwt.ServeHTTP redirect to:", location)
 
+	rw.WriteHeader(http.StatusTemporaryRedirect)
 	rw.Header().Set("Location", location)
-	status := http.StatusTemporaryRedirect
-	rw.WriteHeader(status)
-	_, err := rw.Write([]byte(http.StatusText(status)))
+	_, err := rw.Write([]byte(http.StatusText(http.StatusTemporaryRedirect)))
 
 	if err != nil {
 		log.Println("jwt.ServeHTTP redirect err:", err)
