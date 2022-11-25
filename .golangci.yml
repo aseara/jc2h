@@ -61,6 +61,7 @@ linters:
     - gomnd
     - forbidigo
     - varnamelen
+    - gci
 
 issues:
   exclude-use-default: false

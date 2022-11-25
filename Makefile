@@ -2,7 +2,7 @@
 
 export GO111MODULE=on
 
-default: lint vendor test
+default: lint test
 
 lint:
 	golangci-lint run
