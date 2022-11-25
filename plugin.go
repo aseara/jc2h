@@ -4,7 +4,6 @@ package plugin
 import (
 	"context"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -23,7 +22,7 @@ type Config struct {
 	HeaderName        string `json:"headerName,omitempty"`
 	HeaderValuePrefix string `json:"headerValuePrefix,omitempty"`
 	SignKey           string `json:"signKey,omitempty"`
-	SsoLoginUrl       string `json:"ssoLoginUrl,omitempty"`
+	SsoLoginURL       string `json:"ssoLoginURL ,omitempty"`
 	InjectHeader      string `json:"injectHeader,omitempty"`
 }
 
@@ -51,7 +50,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		config.HeaderValuePrefix = "Bearer"
 	}
 
-	if (config.CheckHeader || config.CheckCookie) && len(config.SsoLoginUrl) == 0 {
+	if (config.CheckHeader || config.CheckCookie) && len(config.SsoLoginURL) == 0 {
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
@@ -64,7 +63,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		var err error
 		k, err = parseKey(config.SignKey)
 		if err != nil {
-			return nil, fmt.Errorf("signKey is not valid: %v", err)
+			return nil, fmt.Errorf("signKey is not valid: %v", err.Error())
 		}
 	}
 
@@ -81,8 +80,7 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	log.Println("jwt.ServeHTTP req.URL:", req.URL)
 	log.Println("jwt.ServeHTTP.req.Host:", req.Host)
 	log.Println("jwt.ServeHTTP.req.RequestURI:", req.RequestURI)
-	b, _ := json.Marshal(j.config)
-	log.Println("jwt.ServeHTTP jwt.config:", string(b))
+	log.Printf("jwt.ServeHTTP jwt.config: %+v", j.config)
 
 	if !j.config.CheckCookie && !j.config.CheckHeader {
 		log.Println("jwt.ServeHTTP no need to check cookie or header, pass through")
@@ -113,6 +111,7 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func parseKey(p string) (any, error) {
+
 	if block, rest := pem.Decode([]byte(p)); block != nil {
 		if len(rest) > 0 {
 			return nil, fmt.Errorf("extra data after a PEM certificate block in publicKey")
@@ -124,7 +123,8 @@ func parseKey(p string) (any, error) {
 	return nil, fmt.Errorf("failed to extract a Key from the publicKey")
 }
 
-func getToken(req *http.Request, c *Config) (t string) {
+func getToken(req *http.Request, c *Config) string {
+	var t string
 	if c.CheckHeader {
 		t = req.Header.Get(c.HeaderName)
 		if len(t) != 0 && len(c.HeaderValuePrefix) != 0 {
@@ -143,7 +143,7 @@ func getToken(req *http.Request, c *Config) (t string) {
 	if len(t) != 0 {
 		t = strings.TrimSpace(t)
 	}
-	return
+	return t
 }
 
 func checkToken(t string, key any) (bool, error) {
@@ -166,7 +166,7 @@ func checkToken(t string, key any) (bool, error) {
 
 func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 	var b strings.Builder
-	b.WriteString(c.SsoLoginUrl)
+	b.WriteString(c.SsoLoginURL)
 	b.WriteString("?ReturnUrl=")
 	b.WriteString(req.URL.String())
 

@@ -39,14 +39,14 @@ func TestHeaderCheck1(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := plugin.New(ctx, next, cfg, "demo-plugin")
+	_, err := plugin.New(ctx, next, cfg, "demo-plugin")
 	// need ssoLoginUrl
 	if err == nil {
 		t.Fatal("expect an error")
 	}
-	cfg.SsoLoginUrl = "https://eop-sso.mh3cloud.cn"
+	cfg.SsoLoginURL = "https://eop-sso.mh3cloud.cn"
 
-	handler, err = plugin.New(ctx, next, cfg, "demo-plugin")
+	_, err = plugin.New(ctx, next, cfg, "demo-plugin")
 	// need signKey
 	if err == nil {
 		t.Fatal("expect an error")
@@ -54,7 +54,7 @@ func TestHeaderCheck1(t *testing.T) {
 	kd, _ := os.ReadFile("test/sample_key.pub")
 	cfg.SignKey = string(kd)
 
-	handler, err = plugin.New(ctx, next, cfg, "demo-plugin")
+	handler, err := plugin.New(ctx, next, cfg, "demo-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestHeaderCheck2(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	cfg.SsoLoginUrl = "https://eop-sso.mh3cloud.cn"
+	cfg.SsoLoginURL = "https://eop-sso.mh3cloud.cn"
 	kd, _ := os.ReadFile("test/sample_key.pub")
 	cfg.SignKey = string(kd)
 	cfg.InjectHeader = "X-JWT-TOKEN"
@@ -115,7 +115,7 @@ func TestCookieCheck(t *testing.T) {
 	cfg := plugin.CreateConfig()
 	cfg.CheckCookie = true
 	cfg.CookieName = "jwt-token"
-	cfg.SsoLoginUrl = "https://eop-sso.mh3cloud.cn"
+	cfg.SsoLoginURL = "https://eop-sso.mh3cloud.cn"
 	kd, _ := os.ReadFile("test/sample_key.pub")
 	cfg.SignKey = string(kd)
 	cfg.InjectHeader = "X-JWT-TOKEN"
