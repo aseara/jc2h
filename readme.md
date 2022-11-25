@@ -48,12 +48,13 @@ http:
 #
 Supported parameter
 
-| Setting   | Allowed values | Description |
-| :--       | :--            | :--         |
-| name      | string   | Name of the request header |
-| matchtype | one, all | Match on all values or one of the values specified. The value 'all' is only allowed in combination with the 'contains' setting.|
-| values    | []string | A list of allowed values which are matched against the request header value|
-| contains  | boolean  | If set to true (default false), the request is allowed if the rtequest header value contains the value specified in the configuration |
-| required  | boolean  | If set to false (default true), the request is allowed if the header is absent or the value is empty|
-| urldecode | boolean  | If set to true (default false), the value of the request header will be URL decoded before further processing with the plugin. This is useful when using this plugin with the [PassTLSClientCert](https://doc.traefik.io/traefik/middlewares/passtlsclientcert/) middleware that Traefik offers.
-| debug     | boolean  | If set to true (default false), the request headers, values and validation will be printed to the console|
+| Setting            | Allowed values | Description |
+| :--                | :--            | :--         |
+| checkCookie        | boolean        | If set to true, will try extract token from cookie with cookieName unless checkHeader is set to true and token is extracted from header.|
+| cookieName         | string         | Used as cookie name when extracting token from cookie. Needed if checkCookie is true.|
+| checkHeader        | boolean        | If set to true, will try extract token from header with headerName.|
+| headerName         | string         | Used to extract token from header. When checkHeader is true and this is empty, headerName will be set to Default value is 'Authorization' and headerValuePrefix to 'Bearer'.|
+| headerValuePrefix  | string         | When extract token from header, this will be the prefix of header value.|
+| signKey            | string         | PEM format public key to verify the jwt token. Cannot be empty when checkCookie or checkHeader is true.|
+| ssoLoginUrl        | string         | login url to redirect when token invalid. Cannot be empty when checkCookie or checkHeader is true.|
+| injectHeader       | string         | If set , the jwt token will be injected into request header with injectHeader value as key.|
