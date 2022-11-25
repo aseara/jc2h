@@ -22,7 +22,7 @@ type Config struct {
 	HeaderName        string `json:"headerName,omitempty"`
 	HeaderValuePrefix string `json:"headerValuePrefix,omitempty"`
 	SignKey           string `json:"signKey,omitempty"`
-	SsoLoginURL       string `json:"ssoLoginUrl ,omitempty"`
+	SsoLoginURL       string `json:"ssoLoginUrl,omitempty"`
 	InjectHeader      string `json:"injectHeader,omitempty"`
 }
 
