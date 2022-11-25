@@ -79,14 +79,13 @@ func TestHeaderCheck1(t *testing.T) {
 func TestHeaderCheck2(t *testing.T) {
 	cfg := plugin.CreateConfig()
 	cfg.CheckHeader = true
-
-	ctx := context.Background()
-	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
-
 	cfg.SsoLoginURL = "https://eop-sso.mh3cloud.cn"
 	kd, _ := os.ReadFile("test/sample_key.pub")
 	cfg.SignKey = string(kd)
 	cfg.InjectHeader = "X-JWT-TOKEN"
+
+	ctx := context.Background()
+	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
 	handler, err := plugin.New(ctx, next, cfg, "demo-plugin")
 	if err != nil {

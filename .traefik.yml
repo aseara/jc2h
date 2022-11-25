@@ -1,12 +1,21 @@
-displayName: Demo Plugin
+displayName: JWT Auth Plugin
 type: middleware
-iconPath: .assets/icon.png
 
-import: github.com/traefik/plugindemo
+import: github.com/aseara/traefik-jwt-plugin
 
-summary: '[Demo] Add Request Header'
+summary: '[Demo] This repository includes a traefik plugin, `jwt`, It can check jwt from cookie or header. And It has optional configuration to set jwt to another header for backend.'
 
 testData:
-  Headers:
-    X-Demo: test
-    X-URL: '{{URL}}'
+  checkHeader: true
+  signKey: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4f5wg5l2hKsTeNem/V41
+    fGnJm6gOdrj8ym3rFkEU/wT8RDtnSgFEZOQpHEgQ7JL38xUfU0Y3g6aYw9QT0hJ7
+    mCpz9Er5qLaMXJwZxzHzAahlfA0icqabvJOMvQtzD6uQv6wPEyZtDTWiQi9AXwBp
+    HssPnpYGIn20ZZuNlX2BrClciHhCPUIIZOQn/MmqTD31jSyjoQoV7MhhMTATKJx2
+    XrHhR+1DcKJzQBSTAGnpYVaqpsARap+nwRipr3nUTuxyGohBTSmjJ2usSeQXHI3b
+    ODIRe1AuTyHceAbewn8b462yEWKARdpd9AjQW5SIVPfdsz5B6GlYQ5LdYKtznTuy
+    7wIDAQAB
+    -----END PUBLIC KEY-----
+  ssoLoginUrl: "https://eop-sso.mh3cloud.cn"
+  injectHeader: "X-JWT-TOKEN"
