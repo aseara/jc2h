@@ -72,7 +72,7 @@ func TestHeaderCheck1(t *testing.T) {
 		t.Fatalf("http code should be %v but get %v", http.StatusTemporaryRedirect, recorder.Code)
 	}
 
-	assertHeader(t, recorder, "Location", "https://eop-sso.mh3cloud.cn?ReturnUrl=http://localhost")
+	assertHeader(t, recorder, "Location", "https://sso.xxxx.com?ReturnUrl=http://localhost")
 }
 
 func TestHeaderCheck2(t *testing.T) {
@@ -181,7 +181,7 @@ func assertHeader(t *testing.T, recorder *httptest.ResponseRecorder, key, expect
 	t.Helper()
 
 	if recorder.Header().Get(key) != expected {
-		t.Errorf("invalid header value: [%s] %s", key, recorder.Header().Get(key))
+		t.Errorf("invalid header value: [%s] %s \n        expected: %s", key, recorder.Header().Get(key), expected)
 	}
 }
 
@@ -189,6 +189,6 @@ func assertReqHeader(t *testing.T, req *http.Request, key, expected string) {
 	t.Helper()
 
 	if req.Header.Get(key) != expected {
-		t.Errorf("invalid header value: [%s] %s", key, req.Header.Get(key))
+		t.Errorf("invalid header value: [%s] %s \n        expected: %s", key, req.Header.Get(key), expected)
 	}
 }
