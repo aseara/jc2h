@@ -1,5 +1,5 @@
-// Package plugin a jwt auth plugin.
-package plugin
+// Package jc2h plugin a jwt auth plugin.
+package jc2h
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package plugin_test
+package jc2h_test
 
 import (
 	"context"
@@ -9,18 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aseara/jc2h"
 	"github.com/golang-jwt/jwt/v4"
-
-	plugin "github.com/aseara/traek-jwt-plugin"
 )
 
 func TestEmptyConfig(t *testing.T) {
-	cfg := plugin.CreateConfig()
+	cfg := jc2h.CreateConfig()
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := plugin.New(ctx, next, cfg, "demo-plugin")
+	handler, err := jc2h.New(ctx, next, cfg, "demo-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,20 +33,20 @@ func TestEmptyConfig(t *testing.T) {
 }
 
 func TestHeaderCheck1(t *testing.T) {
-	cfg := plugin.CreateConfig()
+	cfg := jc2h.CreateConfig()
 	cfg.CheckHeader = true
 
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	_, err := plugin.New(ctx, next, cfg, "demo-plugin")
+	_, err := jc2h.New(ctx, next, cfg, "demo-plugin")
 	// need ssoLoginUrl
 	if err == nil {
 		t.Fatal("expect an error")
 	}
 	cfg.SsoLoginURL = "https://sso.xxxx.com"
 
-	_, err = plugin.New(ctx, next, cfg, "demo-plugin")
+	_, err = jc2h.New(ctx, next, cfg, "demo-plugin")
 	// need signKey
 	if err == nil {
 		t.Fatal("expect an error")
@@ -55,7 +54,7 @@ func TestHeaderCheck1(t *testing.T) {
 	kd, _ := os.ReadFile("test/sample_key.pub")
 	cfg.SignKey = string(kd)
 
-	handler, err := plugin.New(ctx, next, cfg, "demo-plugin")
+	handler, err := jc2h.New(ctx, next, cfg, "demo-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +76,7 @@ func TestHeaderCheck1(t *testing.T) {
 }
 
 func TestHeaderCheck2(t *testing.T) {
-	cfg := plugin.CreateConfig()
+	cfg := jc2h.CreateConfig()
 	cfg.CheckHeader = true
 	cfg.SsoLoginURL = "https://sso.xxxx.com"
 	kd, _ := os.ReadFile("test/sample_key.pub")
@@ -87,7 +86,7 @@ func TestHeaderCheck2(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := plugin.New(ctx, next, cfg, "demo-plugin")
+	handler, err := jc2h.New(ctx, next, cfg, "demo-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +111,7 @@ func TestHeaderCheck2(t *testing.T) {
 }
 
 func TestCookieCheck(t *testing.T) {
-	cfg := plugin.CreateConfig()
+	cfg := jc2h.CreateConfig()
 	cfg.CheckCookie = true
 	cfg.CookieName = "jwt-token"
 	cfg.SsoLoginURL = "https://sso.xxxx.com"
@@ -123,7 +122,7 @@ func TestCookieCheck(t *testing.T) {
 	ctx := context.Background()
 	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {})
 
-	handler, err := plugin.New(ctx, next, cfg, "demo-plugin")
+	handler, err := jc2h.New(ctx, next, cfg, "demo-plugin")
 	if err != nil {
 		t.Fatal(err)
 	}

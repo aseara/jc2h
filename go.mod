@@ -1,4 +1,4 @@
-module github.com/aseara/traek-jwt-plugin
+module github.com/aseara/jc2h
 
 go 1.19
 
