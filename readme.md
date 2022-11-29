@@ -4,49 +4,34 @@ This repository includes a traefik plugin, `jwt`, It can check jwt from cookie o
 
 ## Configuration
 
-Start with command
+The plugin needs to be configured in the Traefik static configuration before it can be used.
+
+### Installation with Helm
+
+```values.yaml
+# snippet from helm values.yaml
+experimental:
+  plugins:
+    enabled: true
+
+additionalArguments:
+- --experimental.plugins.jwt.moduleName=github.com/aseara/traefik-jwt-plugin
+- --experimental.plugins.jwt.version=v0.1.2
+```
+
+### Installation via command line
 ```yaml
 # Static configuratio
 experimental:
   plugins:
     traefik-jwt-middleware:
       moduleName: github.com/aseara/traefik-jwt-plugin
-      version: v0.1.0
+      version: v0.1.2
 ```
 
 #
-
-Activate plugin in your config
-
-```yaml
-# Dynamic configuration
-
-http:
-  routers:
-    my-router:
-      rule: host(`demo.localhost`)
-      service: service-foo
-      entryPoints:
-        - web
-      middlewares:
-        - my-plugin
-
-  services:
-    service-foo:
-      loadBalancer:
-        servers:
-          - url: http://127.0.0.1:5000
-
-  middlewares:
-    my-plugin:
-      plugin:
-        traefik-jwt-middleware:
-          queryParam: token
-          secret: secret
-```
-
-#
-Supported parameter
+## Configuration
+The plugin currently supports the following configuration settings: (all fields are optional)
 
 | Setting            | Allowed values | Description |
 | :--                | :--            | :--         |
@@ -58,3 +43,43 @@ Supported parameter
 | signKey            | string         | PEM format public key to verify the jwt token. Cannot be empty when checkCookie or checkHeader is true.|
 | ssoLoginUrl        | string         | login url to redirect when token invalid. Cannot be empty when checkCookie or checkHeader is true.|
 | injectHeader       | string         | If set , the jwt token will be injected into request header with injectHeader value as key.|
+
+#
+## Example configuration
+This example uses Kubernetes Custom Resource Descriptors (CRD) :
+```yaml
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: traefik-jwt-plugin
+spec:
+  plugin:
+    traefik-jwt-plugin:
+      checkCookie: true
+      cookieName: jwt-token
+      ssoLoginUrl: https://sso.xxxx.cn
+      injectHeader: X-JWT-TOKEN
+      signKey: |
+          -----BEGIN PUBLIC KEY-----
+          MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv
+          vkTtwlvBsaJq7S5wA+kzeVOVpVWwkWdVha4s38XM/pa/yr47av7+z3VTmvDRyAHc
+          aT92whREFpLv9cj5lTeJSibyr/Mrm/YtjCZVWgaOYIhwrXwKLqPr/11inWsAkfIy
+          tvHWTxZYEcXLgAXFuUuaS3uF9gEiNQwzGTU1v0FqkqTBr4B8nW3HCN47XUu0t8Y0
+          e+lf4s4OxQawWD79J9/5d3Ry0vbV3Am1FtGJiJvOwRsIfVChDpYStTcHTCMqtvWb
+          V6L11BWkpzGXSW4Hv43qa+GSYOD2QU68Mb59oSk2OB+BtOLpJofmbGEGgvmwyCI9
+          MwIDAQAB
+          -----END PUBLIC KEY-----
+```
+
+Activate plugin in your config
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-server
+  labels:
+    app: test-server
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-jwt-plugin@kubernetescrd
+```

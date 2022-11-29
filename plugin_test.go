@@ -45,7 +45,7 @@ func TestHeaderCheck1(t *testing.T) {
 	if err == nil {
 		t.Fatal("expect an error")
 	}
-	cfg.SsoLoginURL = "https://eop-sso.mh3cloud.cn"
+	cfg.SsoLoginURL = "https://sso.xxxx.com"
 
 	_, err = plugin.New(ctx, next, cfg, "demo-plugin")
 	// need signKey
@@ -79,7 +79,7 @@ func TestHeaderCheck1(t *testing.T) {
 func TestHeaderCheck2(t *testing.T) {
 	cfg := plugin.CreateConfig()
 	cfg.CheckHeader = true
-	cfg.SsoLoginURL = "https://eop-sso.mh3cloud.cn"
+	cfg.SsoLoginURL = "https://sso.xxxx.com"
 	kd, _ := os.ReadFile("test/sample_key.pub")
 	cfg.SignKey = string(kd)
 	cfg.InjectHeader = "X-JWT-TOKEN"
@@ -115,7 +115,7 @@ func TestCookieCheck(t *testing.T) {
 	cfg := plugin.CreateConfig()
 	cfg.CheckCookie = true
 	cfg.CookieName = "jwt-token"
-	cfg.SsoLoginURL = "https://eop-sso.mh3cloud.cn"
+	cfg.SsoLoginURL = "https://sso.xxxx.com"
 	kd, _ := os.ReadFile("test/sample_key.pub")
 	cfg.SignKey = string(kd)
 	cfg.InjectHeader = "X-JWT-TOKEN"
