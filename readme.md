@@ -1,6 +1,6 @@
 This repository includes a traefik plugin, `jwt`, It can check jwt from cookie or header. And It has optional configuration to set jwt to another header for backend.
 
-[![Build Status](https://github.com/aseara/traefik-jwt-plugin/workflows/Main/badge.svg?branch=master)](https://github.com/aseara/traefik-jwt-plugin/actions)
+[![Build Status](https://github.com/aseara/jc2h/workflows/Main/badge.svg?branch=master)](https://github.com/aseara/jc2h/actions)
 
 ## Configuration
 
@@ -15,8 +15,8 @@ experimental:
     enabled: true
 
 additionalArguments:
-- --experimental.plugins.jwt.moduleName=github.com/aseara/traefik-jwt-plugin
-- --experimental.plugins.jwt.version=v0.1.2
+- --experimental.plugins.traefik-jwt-middleware.moduleName=github.com/aseara/jc2h
+- --experimental.plugins.traefik-jwt-middleware.version=v0.1.2
 ```
 
 ### Installation via command line
@@ -25,7 +25,7 @@ additionalArguments:
 experimental:
   plugins:
     traefik-jwt-middleware:
-      moduleName: github.com/aseara/traefik-jwt-plugin
+      moduleName: github.com/aseara/jc2h
       version: v0.1.2
 ```
 

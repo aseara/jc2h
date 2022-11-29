@@ -1,7 +1,7 @@
 displayName: JWT Auth Plugin
 type: middleware
 
-import: github.com/aseara/traefik-jwt-plugin
+import: github.com/aseara/jc2h
 
 summary: '[Demo] This repository includes a traefik plugin, `jwt`, It can check jwt from cookie or header. And It has optional configuration to set jwt to another header for backend.'
 
