@@ -3,8 +3,7 @@ package jc2h
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"log"
@@ -35,7 +34,7 @@ func CreateConfig() *Config {
 type JwtPlugin struct {
 	name   string
 	config *Config
-	key    any
+	key    *rsa.PublicKey
 	next   http.Handler
 }
 
@@ -54,14 +53,14 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
-	var k any
+	var k *rsa.PublicKey
 	if config.CheckHeader || config.CheckCookie {
 		if len(config.SignKey) == 0 {
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
 		}
 
 		var err error
-		k, err = parseKey(config.SignKey)
+		k, err = jwt.ParseRSAPublicKeyFromPEM([]byte(config.SignKey))
 		if err != nil {
 			return nil, fmt.Errorf("signKey is not valid: %w", err)
 		}
@@ -110,18 +109,6 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	j.next.ServeHTTP(rw, req)
 }
 
-func parseKey(p string) (any, error) {
-	if block, rest := pem.Decode([]byte(p)); block != nil {
-		if len(rest) > 0 {
-			return nil, fmt.Errorf("extra data after a PEM certificate block in publicKey")
-		}
-		if block.Type == "PUBLIC KEY" || block.Type == "RSA PUBLIC KEY" {
-			return x509.ParsePKIXPublicKey(block.Bytes)
-		}
-	}
-	return nil, fmt.Errorf("failed to extract a Key from the publicKey")
-}
-
 func getToken(req *http.Request, c *Config) string {
 	var t string
 	if c.CheckHeader {
@@ -145,7 +132,7 @@ func getToken(req *http.Request, c *Config) string {
 	return t
 }
 
-func checkToken(t string, key any) (bool, error) {
+func checkToken(t string, key *rsa.PublicKey) (bool, error) {
 	token, err := jwt.Parse(t, func(token *jwt.Token) (interface{}, error) {
 		return key, nil
 	})
