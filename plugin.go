@@ -156,9 +156,9 @@ func checkToken(t string, key interface{}) (bool, error) {
 		fmt.Println("jwt.ServeHTTP token is either expired or not active yet")
 	}
 
-	// if token.Valid && token.Method != jwt.SigningMethodRS256 {
-	//	 return false, fmt.Errorf("invalid sign method: expect rs256, get %v", token.Method)
-	// }
+	if token.Valid && token.Method != jwt.SigningMethodRS256 {
+		return false, fmt.Errorf("invalid sign method: expect rs256, get %v", token.Method)
+	}
 
 	return token.Valid, err
 }
@@ -172,9 +172,10 @@ func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 	location := b.String()
 	log.Println("jwt.ServeHTTP redirect to:", location)
 
-	rw.WriteHeader(http.StatusTemporaryRedirect)
 	rw.Header().Set("Location", location)
-	_, err := rw.Write([]byte(http.StatusText(http.StatusTemporaryRedirect)))
+	rw.WriteHeader(http.StatusTemporaryRedirect)
+	msg := fmt.Sprintf("%s to: %s", http.StatusText(http.StatusTemporaryRedirect), location)
+	_, err := rw.Write([]byte(msg))
 	if err != nil {
 		log.Println("jwt.ServeHTTP redirect err:", err)
 		http.Error(rw, err.Error(), http.StatusInternalServerError)

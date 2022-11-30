@@ -44,7 +44,7 @@ func TestHeaderCheck1(t *testing.T) {
 	if err == nil {
 		t.Fatal("expect an error")
 	}
-	cfg.SsoLoginURL = "https://sso.xxxx.com"
+	cfg.SsoLoginURL = "https://clp-sit.mh3cloud.cn/#/login"
 
 	_, err = jc2h.New(ctx, next, cfg, "demo-plugin")
 	// need signKey
@@ -72,7 +72,7 @@ func TestHeaderCheck1(t *testing.T) {
 		t.Fatalf("http code should be %v but get %v", http.StatusTemporaryRedirect, recorder.Code)
 	}
 
-	assertHeader(t, recorder, "Location", "https://sso.xxxx.com?ReturnUrl=http://localhost")
+	assertHeader(t, recorder, "Location", "https://clp-sit.mh3cloud.cn/#/login?ReturnUrl=http://localhost")
 }
 
 func TestHeaderCheck2(t *testing.T) {
@@ -114,7 +114,7 @@ func TestCookieCheck(t *testing.T) {
 	cfg := jc2h.CreateConfig()
 	cfg.CheckCookie = true
 	cfg.CookieName = "jwt-token"
-	cfg.SsoLoginURL = "https://sso.xxxx.com"
+	cfg.SsoLoginURL = "https://clp-sit.mh3cloud.cn/#/login"
 	kd, _ := os.ReadFile("test/sample_key.pub")
 	cfg.SignKey = string(kd)
 	cfg.InjectHeader = "X-JWT-TOKEN"
