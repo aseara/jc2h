@@ -52,7 +52,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
-	var k interface{}
+	var k any
 	if config.CheckHeader || config.CheckCookie {
 		if len(config.SignKey) == 0 {
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
