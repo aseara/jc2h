@@ -3,6 +3,8 @@ package jc2h
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -59,7 +61,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		}
 
 		var err error
-		k, err = jwt.ParseRSAPublicKeyFromPEM([]byte(config.SignKey))
+		k, err = parseKey(config.SignKey)
 		if err != nil {
 			return nil, fmt.Errorf("signKey is not valid: %w", err)
 		}
@@ -71,6 +73,29 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		key:    k,
 		next:   next,
 	}, nil
+}
+
+func parseKey(signKey string) (any, error) {
+	key := []byte(signKey)
+	var err error
+
+	// Parse PEM block
+	var block *pem.Block
+	if block, _ = pem.Decode(key); block == nil {
+		return nil, errors.New("invalid key: Key must be a PEM encoded PKCS1 or PKCS8 key")
+	}
+
+	// Parse the key
+	var parsedKey any
+	if parsedKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+			parsedKey = cert.PublicKey
+		} else {
+			return nil, err
+		}
+	}
+
+	return parsedKey, nil
 }
 
 func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
