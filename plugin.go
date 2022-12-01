@@ -153,7 +153,10 @@ func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 	var b strings.Builder
 	b.WriteString(c.SsoLoginURL)
 	b.WriteString("?ReturnUrl=")
-	b.WriteString(req.URL.String())
+	b.WriteString(req.URL.Scheme)
+	b.WriteString("://")
+	b.WriteString(req.Host)
+	b.WriteString(req.RequestURI)
 
 	location := b.String()
 	log.Println("jwt.ServeHTTP redirect to:", location)
