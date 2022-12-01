@@ -141,12 +141,14 @@ func getToken(req *http.Request, c *Config) string {
 			t = strings.TrimPrefix(t, c.HeaderValuePrefix)
 		}
 	}
+
+	for _, c := range req.Cookies() {
+		log.Printf("jwt.ServeHTTP cookie [%s]: (%s)", c.Name, c.Value)
+	}
+
 	if len(t) == 0 && c.CheckCookie {
-		for _, cookie := range req.Cookies() {
-			if cookie.Name == c.CookieName {
-				t = cookie.Value
-				break
-			}
+		if c, err := req.Cookie(c.CookieName); err == nil {
+			t = c.Value
 		}
 	}
 
