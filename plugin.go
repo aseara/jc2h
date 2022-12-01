@@ -3,8 +3,6 @@ package jc2h
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -35,7 +33,7 @@ func CreateConfig() *Config {
 type JwtPlugin struct {
 	name   string
 	config *Config
-	key    interface{}
+	key    any
 	next   http.Handler
 }
 
@@ -61,7 +59,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		}
 
 		var err error
-		k, err = parseKey(config.SignKey)
+		k, err = jwt.ParseRSAPublicKeyFromPEM([]byte(config.SignKey))
 		if err != nil {
 			return nil, fmt.Errorf("signKey is not valid: %w", err)
 		}
@@ -73,18 +71,6 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		key:    k,
 		next:   next,
 	}, nil
-}
-
-func parseKey(p string) (interface{}, error) {
-	if block, rest := pem.Decode([]byte(p)); block != nil {
-		if len(rest) > 0 {
-			return nil, fmt.Errorf("extra data after a PEM certificate block in publicKey")
-		}
-		if block.Type == "PUBLIC KEY" || block.Type == "RSA PUBLIC KEY" {
-			return x509.ParsePKIXPublicKey(block.Bytes)
-		}
-	}
-	return nil, fmt.Errorf("failed to extract a Key from the publicKey")
 }
 
 func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -145,8 +131,8 @@ func getToken(req *http.Request, c *Config) string {
 	return t
 }
 
-func checkToken(t string, key interface{}) (bool, error) {
-	token, err := jwt.Parse(t, func(token *jwt.Token) (interface{}, error) {
+func checkToken(t string, key any) (bool, error) {
+	token, err := jwt.Parse(t, func(token *jwt.Token) (any, error) {
 		return key, nil
 	})
 
