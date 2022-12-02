@@ -17,8 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	jwtv4 "github.com/golang-jwt/jwt/v4"
 )
 
 // Config the plugin configuration.
@@ -42,6 +40,7 @@ func CreateConfig() *Config {
 type JwtPlugin struct {
 	name   string
 	config *Config
+	key    *rsa.PublicKey
 	next   http.Handler
 }
 
@@ -60,22 +59,23 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
-	j := &JwtPlugin{
-		name:   name,
-		config: config,
-		next:   next,
-	}
-
+	var k *rsa.PublicKey
 	if config.CheckHeader || config.CheckCookie {
 		if len(config.SignKey) == 0 {
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
 		}
-		if _, err := j.parseKey(); err != nil {
+		var err error
+		if k, err = parseKey(config.SignKey); err != nil {
 			return nil, fmt.Errorf("parse pk error: %w", err)
 		}
 	}
 
-	return j, nil
+	return &JwtPlugin{
+		name:   name,
+		config: config,
+		key:    k,
+		next:   next,
+	}, nil
 }
 
 func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -98,11 +98,7 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if _, err := j.parseKey(); err != nil {
-		log.Println("jwt.ServeHTTP parse pk error:", err)
-	}
-
-	err := checkToken(t, j.config.SignKey)
+	err := checkToken(t, j.key)
 	if err != nil {
 		log.Println("jwt.ServeHTTP token valid false", err)
 		redirectToLogin(j.config, rw, req)
@@ -117,12 +113,12 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	j.next.ServeHTTP(rw, req)
 }
 
-func (j *JwtPlugin) parseKey() (*rsa.PublicKey, error) {
+func parseKey(t string) (*rsa.PublicKey, error) {
 	var err error
 
 	// Parse PEM block
 	var block *pem.Block
-	if block, _ = pem.Decode([]byte(j.config.SignKey)); block == nil {
+	if block, _ = pem.Decode([]byte(t)); block == nil {
 		return nil, errors.New("invalid key: Key must be a PEM encoded PKCS1 or PKCS8 key")
 	}
 
@@ -196,7 +192,7 @@ type jwt struct {
 	Payload   map[string]interface{}
 }
 
-func checkToken(t, k string) error {
+func checkToken(t string, pk *rsa.PublicKey) error {
 	token, err := parseToken(t)
 	if err != nil {
 		return err
@@ -206,7 +202,7 @@ func checkToken(t, k string) error {
 		return errors.New("parse token is nil")
 	}
 
-	if err = verifyToken(token, k); err != nil {
+	if err = verifyToken(token, pk); err != nil {
 		return err
 	}
 
@@ -259,7 +255,7 @@ func parseToken(t string) (*jwt, error) {
 	return &jwtToken, nil
 }
 
-func verifyToken(token *jwt, key string) error {
+func verifyToken(token *jwt, pk *rsa.PublicKey) error {
 	supportedHeaderNames := map[string]struct{}{"alg": {}, "kid": {}, "typ": {}, "cty": {}, "crit": {}}
 	for _, h := range token.Header.Crit {
 		if _, ok := supportedHeaderNames[h]; !ok {
@@ -280,11 +276,6 @@ func verifyToken(token *jwt, key string) error {
 	}
 
 	digest := h.Sum([]byte{})
-
-	var pk *rsa.PublicKey
-	if pk, err = jwtv4.ParseRSAPublicKeyFromPEM([]byte(key)); err != nil {
-		return err
-	}
 
 	if err := rsa.VerifyPKCS1v15(pk, hash, digest, token.Signature); err != nil {
 		return fmt.Errorf("token verification failed (RSAPKCS): %w", err)
