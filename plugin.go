@@ -2,17 +2,21 @@
 package jc2h
 
 import (
+	"bytes"
 	"context"
+	"crypto"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
-
-	"github.com/golang-jwt/jwt/v4"
+	"time"
 )
 
 // Config the plugin configuration.
@@ -36,7 +40,6 @@ func CreateConfig() *Config {
 type JwtPlugin struct {
 	name   string
 	config *Config
-	key    *rsa.PublicKey
 	next   http.Handler
 }
 
@@ -55,54 +58,17 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
-	var k *rsa.PublicKey
 	if config.CheckHeader || config.CheckCookie {
 		if len(config.SignKey) == 0 {
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
-		}
-
-		var err error
-		k, err = parseKey(config.SignKey)
-		if err != nil {
-			return nil, fmt.Errorf("signKey is not valid: %w", err)
 		}
 	}
 
 	return &JwtPlugin{
 		name:   name,
 		config: config,
-		key:    k,
 		next:   next,
 	}, nil
-}
-
-func parseKey(signKey string) (*rsa.PublicKey, error) {
-	key := []byte(signKey)
-	var err error
-
-	// Parse PEM block
-	var block *pem.Block
-	if block, _ = pem.Decode(key); block == nil {
-		return nil, errors.New("invalid key: Key must be a PEM encoded PKCS1 or PKCS8 key")
-	}
-
-	// Parse the key
-	var parsedKey any
-	if parsedKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
-		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
-			parsedKey = cert.PublicKey
-		} else {
-			return nil, err
-		}
-	}
-
-	var pkey *rsa.PublicKey
-	var ok bool
-	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
-		return nil, errors.New("key is not a valid RSA public key")
-	}
-
-	return pkey, nil
 }
 
 func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -125,8 +91,8 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	c, err := j.checkToken(t)
-	if err != nil || !c {
+	err := j.checkToken(t)
+	if err != nil {
 		log.Println("jwt.ServeHTTP token valid false", err)
 		redirectToLogin(j.config, rw, req)
 		return
@@ -162,30 +128,10 @@ func getToken(req *http.Request, c *Config) string {
 	return t
 }
 
-func (j *JwtPlugin) checkToken(t string) (bool, error) {
-	token, err := jwt.Parse(t, func(token *jwt.Token) (any, error) {
-		return j.key, nil
-	})
-
-	if errors.Is(err, jwt.ErrTokenMalformed) {
-		log.Println("jwt.ServeHTTP jwt token is malformed")
-	} else if errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet) {
-		fmt.Println("jwt.ServeHTTP token is either expired or not active yet")
-	}
-
-	if token.Valid && token.Method != jwt.SigningMethodRS256 {
-		return false, fmt.Errorf("invalid sign method: expect rs256, get %v", token.Method)
-	}
-
-	return token.Valid, err
-}
-
 func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 	var b strings.Builder
 	b.WriteString(c.SsoLoginURL)
-	b.WriteString("?ReturnUrl=")
-	b.WriteString(req.URL.Scheme)
-	b.WriteString("://")
+	b.WriteString("?ReturnUrl=https://")
 	b.WriteString(req.Host)
 	b.WriteString(req.RequestURI)
 
@@ -200,4 +146,144 @@ func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
 		log.Println("jwt.ServeHTTP redirect err:", err)
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+type jwtHeader struct {
+	Alg  string   `json:"alg"`
+	Kid  string   `json:"kid"`
+	Typ  string   `json:"typ"`
+	Cty  string   `json:"cty"`
+	Crit []string `json:"crit"`
+}
+
+type jwt struct {
+	Plaintext []byte
+	Signature []byte
+	Header    jwtHeader
+	Payload   map[string]interface{}
+}
+
+func (j *JwtPlugin) checkToken(t string) error {
+	token, err := parseToken(t)
+	if err != nil {
+		return err
+	}
+
+	if token == nil {
+		return errors.New("parse token is nil")
+	}
+
+	if err = j.verifyToken(token); err != nil {
+		return err
+	}
+
+	if exp := token.Payload["exp"]; exp != nil {
+		if expInt, err := strconv.ParseInt(fmt.Sprint(exp), 10, 64); err != nil || expInt < time.Now().Unix() {
+			return errors.New("token is expired")
+		}
+	}
+	if nbf := token.Payload["nbf"]; nbf != nil {
+		if nbfInt, err := strconv.ParseInt(fmt.Sprint(nbf), 10, 64); err != nil || nbfInt > time.Now().Add(1*time.Minute).Unix() {
+			return errors.New("token not valid yet")
+		}
+	}
+
+	return nil
+}
+
+func parseToken(t string) (*jwt, error) {
+	parts := strings.Split(t, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid token format")
+	}
+
+	header, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return nil, err
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, err
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil {
+		return nil, err
+	}
+	jwtToken := jwt{
+		Plaintext: []byte(t[0 : len(parts[0])+len(parts[1])+1]),
+		Signature: signature,
+	}
+	err = json.Unmarshal(header, &jwtToken.Header)
+	if err != nil {
+		return nil, err
+	}
+	d := json.NewDecoder(bytes.NewBuffer(payload))
+	d.UseNumber()
+	err = d.Decode(&jwtToken.Payload)
+	if err != nil {
+		return nil, err
+	}
+	return &jwtToken, nil
+}
+
+func (j *JwtPlugin) verifyToken(token *jwt) error {
+	supportedHeaderNames := map[string]struct{}{"alg": {}, "kid": {}, "typ": {}, "cty": {}, "crit": {}}
+	for _, h := range token.Header.Crit {
+		if _, ok := supportedHeaderNames[h]; !ok {
+			return fmt.Errorf("unsupported header: %s", h)
+		}
+	}
+
+	if token.Header.Alg != "RS256" {
+		return fmt.Errorf("invalid sign method: expect rs256, get %v", token.Header.Alg)
+	}
+
+	hash := crypto.SHA256
+
+	h := hash.New()
+	_, err := h.Write(token.Plaintext)
+	if err != nil {
+		return err
+	}
+
+	digest := h.Sum([]byte{})
+
+	var pk *rsa.PublicKey
+	if pk, err = parseKey(j.config.SignKey); err != nil {
+		return err
+	}
+
+	if err := rsa.VerifyPKCS1v15(pk, hash, digest, token.Signature); err != nil {
+		return fmt.Errorf("token verification failed (RSAPKCS): %w", err)
+	}
+	return nil
+}
+
+func parseKey(signKey string) (*rsa.PublicKey, error) {
+	key := []byte(signKey)
+	var err error
+
+	// Parse PEM block
+	var block *pem.Block
+	if block, _ = pem.Decode(key); block == nil {
+		return nil, errors.New("invalid key: Key must be a PEM encoded PKCS1 or PKCS8 key")
+	}
+
+	// Parse the key
+	var parsedKey any
+	if parsedKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+			parsedKey = cert.PublicKey
+		} else {
+			return nil, err
+		}
+	}
+
+	var pkey *rsa.PublicKey
+	var ok bool
+	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
+		return nil, errors.New("key is not a valid RSA public key")
+	}
+
+	return pkey, nil
 }

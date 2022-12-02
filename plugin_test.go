@@ -61,7 +61,7 @@ func TestHeaderCheck1(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://localhost", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestHeaderCheck1(t *testing.T) {
 		t.Fatalf("http code should be %v but get %v", http.StatusTemporaryRedirect, recorder.Code)
 	}
 
-	assertHeader(t, recorder, "Location", "https://clp-sit.mh3cloud.cn/#/login?ReturnUrl=http://localhost")
+	assertHeader(t, recorder, "Location", "https://clp-sit.mh3cloud.cn/#/login?ReturnUrl=https://localhost")
 }
 
 func TestHeaderCheck2(t *testing.T) {
@@ -93,7 +93,7 @@ func TestHeaderCheck2(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://localhost", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestCookieCheck(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://localhost", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
