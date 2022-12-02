@@ -136,13 +136,7 @@ func (j *JwtPlugin) parseKey() (*rsa.PublicKey, error) {
 		}
 	}
 
-	var pkey *rsa.PublicKey
-	var ok bool
-	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
-		return nil, fmt.Errorf("key[%T] is not a valid RSA public key", parsedKey)
-	}
-
-	return pkey, nil
+	return parsedKey.(*rsa.PublicKey), nil
 }
 
 func getToken(req *http.Request, c *Config) string {

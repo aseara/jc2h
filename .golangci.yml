@@ -62,6 +62,7 @@ linters:
     - forbidigo
     - varnamelen
     - gci
+    - forcetypeassert
 
 issues:
   exclude-use-default: false
