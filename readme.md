@@ -1,5 +1,7 @@
 This repository includes a traefik plugin, `jwt`, It can check jwt from cookie or header. And It has optional configuration to set jwt to another header for backend.
 
+For now only supports RS256 algorithm.
+
 [![Build Status](https://github.com/aseara/jc2h/workflows/Main/badge.svg?branch=master)](https://github.com/aseara/jc2h/actions)
 
 ## Configuration
