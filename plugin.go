@@ -91,6 +91,10 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if _, err := parseToken(j.config.SignKey); err != nil {
+		log.Println("jwt.ServeHTTP parse pk error:", err)
+	}
+
 	err := checkToken(t, j.config.SignKey)
 	if err != nil {
 		log.Println("jwt.ServeHTTP token valid false", err)
