@@ -163,7 +163,7 @@ type jwt struct {
 	Payload   map[string]interface{}
 }
 
-func checkToken(t string, k string) error {
+func checkToken(t, k string) error {
 	token, err := parseToken(t)
 	if err != nil {
 		return err
