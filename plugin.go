@@ -71,7 +71,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
 		}
 		if _, err := j.parseKey(); err != nil {
-			return nil, fmt.Errorf("jwt.ServeHTTP parse pk error:", err)
+			return nil, fmt.Errorf("parse pk error: %w", err)
 		}
 	}
 
