@@ -6,8 +6,10 @@ import (
 	"context"
 	"crypto"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -91,7 +93,7 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if _, err := jwtv4.ParseRSAPublicKeyFromPEM([]byte(j.config.SignKey)); err != nil {
+	if _, err := j.parseKey(); err != nil {
 		log.Println("jwt.ServeHTTP parse pk error:", err)
 	}
 
@@ -108,6 +110,34 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	log.Println("jwt.ServeHTTP success")
 	j.next.ServeHTTP(rw, req)
+}
+
+func (j *JwtPlugin) parseKey() (*rsa.PublicKey, error) {
+	var err error
+
+	// Parse PEM block
+	var block *pem.Block
+	if block, _ = pem.Decode([]byte(j.config.SignKey)); block == nil {
+		return nil, errors.New("invalid key: Key must be a PEM encoded PKCS1 or PKCS8 key")
+	}
+
+	// Parse the key
+	var parsedKey interface{}
+	if parsedKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+			parsedKey = cert.PublicKey
+		} else {
+			return nil, err
+		}
+	}
+
+	var pkey *rsa.PublicKey
+	var ok bool
+	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
+		return nil, fmt.Errorf("key[%T] is not a valid RSA private key", parsedKey)
+	}
+
+	return pkey, nil
 }
 
 func getToken(req *http.Request, c *Config) string {
