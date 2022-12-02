@@ -3,6 +3,7 @@ package jc2h
 
 import (
 	"context"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -35,7 +36,7 @@ func CreateConfig() *Config {
 type JwtPlugin struct {
 	name   string
 	config *Config
-	key    any
+	key    *rsa.PublicKey
 	next   http.Handler
 }
 
@@ -54,7 +55,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
-	var k any
+	var k *rsa.PublicKey
 	if config.CheckHeader || config.CheckCookie {
 		if len(config.SignKey) == 0 {
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
@@ -75,7 +76,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 	}, nil
 }
 
-func parseKey(signKey string) (any, error) {
+func parseKey(signKey string) (*rsa.PublicKey, error) {
 	key := []byte(signKey)
 	var err error
 
@@ -95,7 +96,13 @@ func parseKey(signKey string) (any, error) {
 		}
 	}
 
-	return parsedKey, nil
+	var pkey *rsa.PublicKey
+	var ok bool
+	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
+		return nil, errors.New("key is not a valid RSA public key")
+	}
+
+	return pkey, nil
 }
 
 func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -157,7 +164,7 @@ func getToken(req *http.Request, c *Config) string {
 
 func (j *JwtPlugin) checkToken(t string) (bool, error) {
 	token, err := jwt.Parse(t, func(token *jwt.Token) (any, error) {
-		return jwt.ParseRSAPublicKeyFromPEM([]byte(j.config.SignKey))
+		return j.key, nil
 	})
 
 	if errors.Is(err, jwt.ErrTokenMalformed) {
