@@ -118,7 +118,7 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	c, err := checkToken(t, j.key)
+	c, err := j.checkToken(t)
 	if err != nil || !c {
 		log.Println("jwt.ServeHTTP token valid false", err)
 		redirectToLogin(j.config, rw, req)
@@ -135,20 +135,17 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 func getToken(req *http.Request, c *Config) string {
 	var t string
-	if c.CheckHeader {
-		t = req.Header.Get(c.HeaderName)
-		if len(t) != 0 && len(c.HeaderValuePrefix) != 0 {
-			t = strings.TrimPrefix(t, c.HeaderValuePrefix)
+
+	if c.CheckCookie {
+		if c, err := req.Cookie(c.CookieName); err == nil {
+			t = c.Value
 		}
 	}
 
-	for _, c := range req.Cookies() {
-		log.Printf("jwt.ServeHTTP cookie [%s]: (%s)", c.Name, c.Value)
-	}
-
-	if len(t) == 0 && c.CheckCookie {
-		if c, err := req.Cookie(c.CookieName); err == nil {
-			t = c.Value
+	if len(t) == 0 && c.CheckHeader {
+		t = req.Header.Get(c.HeaderName)
+		if len(t) != 0 && len(c.HeaderValuePrefix) != 0 {
+			t = strings.TrimPrefix(t, c.HeaderValuePrefix)
 		}
 	}
 
@@ -158,9 +155,9 @@ func getToken(req *http.Request, c *Config) string {
 	return t
 }
 
-func checkToken(t string, key any) (bool, error) {
+func (j *JwtPlugin) checkToken(t string) (bool, error) {
 	token, err := jwt.Parse(t, func(token *jwt.Token) (any, error) {
-		return key, nil
+		return jwt.ParseRSAPublicKeyFromPEM([]byte(j.config.SignKey))
 	})
 
 	if errors.Is(err, jwt.ErrTokenMalformed) {
