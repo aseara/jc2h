@@ -91,7 +91,7 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := j.checkToken(t)
+	err := checkToken(t, j.config.SignKey)
 	if err != nil {
 		log.Println("jwt.ServeHTTP token valid false", err)
 		redirectToLogin(j.config, rw, req)
@@ -163,7 +163,7 @@ type jwt struct {
 	Payload   map[string]interface{}
 }
 
-func (j *JwtPlugin) checkToken(t string) error {
+func checkToken(t string, k string) error {
 	token, err := parseToken(t)
 	if err != nil {
 		return err
@@ -173,7 +173,7 @@ func (j *JwtPlugin) checkToken(t string) error {
 		return errors.New("parse token is nil")
 	}
 
-	if err = j.verifyToken(token); err != nil {
+	if err = verifyToken(token, k); err != nil {
 		return err
 	}
 
@@ -226,7 +226,7 @@ func parseToken(t string) (*jwt, error) {
 	return &jwtToken, nil
 }
 
-func (j *JwtPlugin) verifyToken(token *jwt) error {
+func verifyToken(token *jwt, key string) error {
 	supportedHeaderNames := map[string]struct{}{"alg": {}, "kid": {}, "typ": {}, "cty": {}, "crit": {}}
 	for _, h := range token.Header.Crit {
 		if _, ok := supportedHeaderNames[h]; !ok {
@@ -249,7 +249,7 @@ func (j *JwtPlugin) verifyToken(token *jwt) error {
 	digest := h.Sum([]byte{})
 
 	var pk *rsa.PublicKey
-	if pk, err = jwtv4.ParseRSAPublicKeyFromPEM([]byte(j.config.SignKey)); err != nil {
+	if pk, err = jwtv4.ParseRSAPublicKeyFromPEM([]byte(key)); err != nil {
 		return err
 	}
 
