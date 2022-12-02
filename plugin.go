@@ -6,10 +6,8 @@ import (
 	"context"
 	"crypto"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -17,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	jwtv4 "github.com/golang-jwt/jwt/v4"
 )
 
 // Config the plugin configuration.
@@ -249,7 +249,7 @@ func (j *JwtPlugin) verifyToken(token *jwt) error {
 	digest := h.Sum([]byte{})
 
 	var pk *rsa.PublicKey
-	if pk, err = parseKey(j.config.SignKey); err != nil {
+	if pk, err = jwtv4.ParseRSAPublicKeyFromPEM([]byte(j.config.SignKey)); err != nil {
 		return err
 	}
 
@@ -257,29 +257,4 @@ func (j *JwtPlugin) verifyToken(token *jwt) error {
 		return fmt.Errorf("token verification failed (RSAPKCS): %w", err)
 	}
 	return nil
-}
-
-func parseKey(signKey string) (*rsa.PublicKey, error) {
-	key := []byte(signKey)
-	var err error
-
-	// Parse PEM block
-	var block *pem.Block
-	if block, _ = pem.Decode(key); block == nil {
-		return nil, errors.New("invalid key: Key must be a PEM encoded key")
-	}
-
-	// Parse the key
-	var parsedKey any
-	if parsedKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
-		return nil, err
-	}
-
-	var pkey *rsa.PublicKey
-	var ok bool
-	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
-		return nil, fmt.Errorf("key is not a valid RSA public key: %T", parsedKey)
-	}
-
-	return pkey, nil
 }
