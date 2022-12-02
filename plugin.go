@@ -91,7 +91,7 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if _, err := parseToken(j.config.SignKey); err != nil {
+	if _, err := jwtv4.ParseRSAPublicKeyFromPEM([]byte(j.config.SignKey)); err != nil {
 		log.Println("jwt.ServeHTTP parse pk error:", err)
 	}
 
