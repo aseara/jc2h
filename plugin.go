@@ -60,17 +60,22 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
 	}
 
+	j := &JwtPlugin{
+		name:   name,
+		config: config,
+		next:   next,
+	}
+
 	if config.CheckHeader || config.CheckCookie {
 		if len(config.SignKey) == 0 {
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
 		}
+		if _, err := j.parseKey(); err != nil {
+			return nil, fmt.Errorf("jwt.ServeHTTP parse pk error:", err)
+		}
 	}
 
-	return &JwtPlugin{
-		name:   name,
-		config: config,
-		next:   next,
-	}, nil
+	return j, nil
 }
 
 func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -134,7 +139,7 @@ func (j *JwtPlugin) parseKey() (*rsa.PublicKey, error) {
 	var pkey *rsa.PublicKey
 	var ok bool
 	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
-		return nil, fmt.Errorf("key[%T] is not a valid RSA private key", parsedKey)
+		return nil, fmt.Errorf("key[%T] is not a valid RSA public key", parsedKey)
 	}
 
 	return pkey, nil
