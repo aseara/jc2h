@@ -266,23 +266,19 @@ func parseKey(signKey string) (*rsa.PublicKey, error) {
 	// Parse PEM block
 	var block *pem.Block
 	if block, _ = pem.Decode(key); block == nil {
-		return nil, errors.New("invalid key: Key must be a PEM encoded PKCS1 or PKCS8 key")
+		return nil, errors.New("invalid key: Key must be a PEM encoded key")
 	}
 
 	// Parse the key
 	var parsedKey any
 	if parsedKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
-		if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
-			parsedKey = cert.PublicKey
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	var pkey *rsa.PublicKey
 	var ok bool
 	if pkey, ok = parsedKey.(*rsa.PublicKey); !ok {
-		return nil, errors.New("key is not a valid RSA public key")
+		return nil, fmt.Errorf("key is not a valid RSA public key: %T", parsedKey)
 	}
 
 	return pkey, nil
