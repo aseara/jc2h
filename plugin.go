@@ -158,7 +158,11 @@ func getToken(req *http.Request, c *Config) string {
 	}
 
 	if len(t) == 0 && c.CheckQueryParam {
-		t = req.URL.Query().Get(c.QueryParamName)
+		qry := req.URL.Query()
+		t = qry.Get(c.QueryParamName)
+		if len(t) != 0 {
+			qry.Del(c.QueryParamName)
+		}
 	}
 
 	if len(t) != 0 {
