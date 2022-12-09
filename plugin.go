@@ -99,8 +99,9 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	t := getToken(req, j.config)
 	if len(t) == 0 {
-		log.Println("jwt.ServeHTTP jwt token is nil")
+
 		if !redirectWithCookie(j.config, rw, req) {
+			log.Println("jwt.ServeHTTP jwt token is nil, redirect to login!")
 			redirectToLogin(j.config, rw, req)
 		}
 		return
@@ -166,7 +167,7 @@ func getToken(req *http.Request, c *Config) string {
 }
 
 func redirectWithCookie(c *Config, rw http.ResponseWriter, req *http.Request) bool {
-	if c.CheckQueryParam {
+	if !c.CheckQueryParam {
 		return false
 	}
 
@@ -205,6 +206,7 @@ func redirectWithCookie(c *Config, rw http.ResponseWriter, req *http.Request) bo
 		log.Println("jwt.ServeHTTP redirect err:", err)
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 	}
+	log.Println("jwt.ServeHTTP jwt token is nil, redirect to cookie!")
 	return true
 }
 
