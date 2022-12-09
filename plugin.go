@@ -100,7 +100,9 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	t := getToken(req, j.config)
 	if len(t) == 0 {
 		log.Println("jwt.ServeHTTP jwt token is nil")
-		redirectToLogin(j.config, rw, req)
+		if !redirectWithCookie(j.config, rw, req) {
+			redirectToLogin(j.config, rw, req)
+		}
 		return
 	}
 
@@ -157,21 +159,53 @@ func getToken(req *http.Request, c *Config) string {
 		}
 	}
 
-	if len(t) == 0 && c.CheckQueryParam {
-		qry := req.URL.Query()
-		t = qry.Get(c.QueryParamName)
-		if len(t) != 0 {
-			qry.Del(c.QueryParamName)
-			req.URL.RawQuery = qry.Encode()
-			req.RequestURI = req.URL.RequestURI()
-			log.Println("jwt.ServeHTTP chang request uri to: ", req.RequestURI)
-		}
-	}
-
 	if len(t) != 0 {
 		t = strings.TrimSpace(t)
 	}
 	return t
+}
+
+func redirectWithCookie(c *Config, rw http.ResponseWriter, req *http.Request) bool {
+	if c.CheckQueryParam {
+		return false
+	}
+
+	qry := req.URL.Query()
+	t := qry.Get(c.QueryParamName)
+	if len(t) == 0 {
+		return false
+	}
+
+	qry.Del(c.QueryParamName)
+	req.URL.RawQuery = qry.Encode()
+
+	var b strings.Builder
+	b.WriteString("https://")
+	b.WriteString(req.Host)
+	b.WriteString(req.URL.RequestURI())
+
+	location := b.String()
+	log.Println("jwt.ServeHTTP redirect to:", location)
+
+	rw.Header().Set("Location", location)
+	rw.Header().Set("Set-Cookie", (&http.Cookie{
+		Name:     c.CookieName,
+		Value:    t,
+		MaxAge:   3600 * 24,
+		Path:     "/",
+		Domain:   req.Host,
+		Secure:   true,
+		HttpOnly: true,
+	}).String())
+	rw.WriteHeader(http.StatusTemporaryRedirect)
+
+	msg := fmt.Sprintf("%s to: %s", http.StatusText(http.StatusTemporaryRedirect), location)
+	_, err := rw.Write([]byte(msg))
+	if err != nil {
+		log.Println("jwt.ServeHTTP redirect err:", err)
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+	}
+	return true
 }
 
 func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {
