@@ -162,6 +162,8 @@ func getToken(req *http.Request, c *Config) string {
 		t = qry.Get(c.QueryParamName)
 		if len(t) != 0 {
 			qry.Del(c.QueryParamName)
+			req.URL.RawQuery = qry.Encode()
+			req.RequestURI = req.URL.RequestURI()
 		}
 	}
 
