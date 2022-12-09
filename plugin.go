@@ -25,6 +25,8 @@ type Config struct {
 	CookieName        string `json:"cookieName,omitempty"`
 	CheckHeader       bool   `json:"checkHeader,omitempty"`
 	HeaderName        string `json:"headerName,omitempty"`
+	CheckQueryParam   bool   `json:"checkQueryParam,omitempty"`
+	QueryParamName    string `json:"queryParamName,omitempty"`
 	HeaderValuePrefix string `json:"headerValuePrefix,omitempty"`
 	SignKey           string `json:"signKey,omitempty"`
 	SsoLoginURL       string `json:"ssoLoginUrl,omitempty"`
@@ -55,8 +57,12 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		config.HeaderValuePrefix = "Bearer"
 	}
 
-	if (config.CheckHeader || config.CheckCookie) && len(config.SsoLoginURL) == 0 {
-		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader is true")
+	if config.CheckQueryParam && len(config.QueryParamName) == 0 {
+		return nil, fmt.Errorf("queryParamName cannot be empty when checkQueryParam is true")
+	}
+
+	if (config.CheckHeader || config.CheckCookie || config.CheckQueryParam) && len(config.SsoLoginURL) == 0 {
+		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader or checkQueryParam is true")
 	}
 
 	var k *rsa.PublicKey
@@ -85,8 +91,8 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	log.Println("jwt.ServeHTTP.req.RequestURI:", req.RequestURI)
 	log.Printf("jwt.ServeHTTP jwt.config: %+v", j.config)
 
-	if !j.config.CheckCookie && !j.config.CheckHeader {
-		log.Println("jwt.ServeHTTP no need to check cookie or header, pass through")
+	if !j.config.CheckCookie && !j.config.CheckHeader && !j.config.CheckQueryParam {
+		log.Println("jwt.ServeHTTP no need to check cookie or header or query param, pass through")
 		j.next.ServeHTTP(rw, req)
 		return
 	}
@@ -149,6 +155,10 @@ func getToken(req *http.Request, c *Config) string {
 		if len(t) != 0 && len(c.HeaderValuePrefix) != 0 {
 			t = strings.TrimPrefix(t, c.HeaderValuePrefix)
 		}
+	}
+
+	if len(t) == 0 && c.CheckQueryParam {
+		t = req.URL.Query().Get(c.QueryParamName)
 	}
 
 	if len(t) != 0 {
