@@ -164,6 +164,7 @@ func getToken(req *http.Request, c *Config) string {
 			qry.Del(c.QueryParamName)
 			req.URL.RawQuery = qry.Encode()
 			req.RequestURI = req.URL.RequestURI()
+			log.Println("jwt.ServeHTTP chang request uri to: ", req.RequestURI)
 		}
 	}
 
