@@ -196,6 +196,7 @@ func redirectWithCookie(c *Config, rw http.ResponseWriter, req *http.Request) bo
 		Path:     "/",
 		Domain:   req.Host,
 		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
 		HttpOnly: true,
 	}).String())
 	rw.WriteHeader(http.StatusTemporaryRedirect)
