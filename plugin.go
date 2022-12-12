@@ -106,17 +106,19 @@ func ssoLoginURLConfigCheck(config *Config) error {
 	return nil
 }
 
-func parsePublicKey(config *Config) (k *rsa.PublicKey, err error) {
+func parsePublicKey(config *Config) (*rsa.PublicKey, error) {
+	var key *rsa.PublicKey
+	var err error
 	if config.CheckHeader || config.CheckCookie {
 		if len(config.SignKey) == 0 {
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
 		}
-		var err error
-		if k, err = parseKey(config.SignKey); err != nil {
+
+		if key, err = parseKey(config.SignKey); err != nil {
 			return nil, fmt.Errorf("parse pk error: %w", err)
 		}
 	}
-	return
+	return key, nil
 }
 
 func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -245,6 +247,7 @@ func redirectWithCookie(c *Config, rw http.ResponseWriter, req *http.Request) bo
 	return true
 }
 
+// EncodeQuery encode query params without unnecessary '='.
 func EncodeQuery(qry url.Values) string {
 	if qry == nil {
 		return ""
