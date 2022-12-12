@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -48,24 +50,63 @@ type JwtPlugin struct {
 
 // New created a new JwtPlugin plugin.
 func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	if config.CheckCookie && len(config.CookieName) == 0 {
-		return nil, fmt.Errorf("cookieName cannot be empty when checkCookie is true")
+	if err := checkCookieConfig(config); err != nil {
+		return nil, err
 	}
 
+	checkHeaderConfig(config)
+
+	if err := checkQueryParamConfigCheck(config); err != nil {
+		return nil, err
+	}
+
+	if err := ssoLoginURLConfigCheck(config); err != nil {
+		return nil, err
+	}
+
+	var k *rsa.PublicKey
+	var err error
+	if k, err = parsePublicKey(config); err != nil {
+		return nil, err
+	}
+
+	return &JwtPlugin{
+		name:   name,
+		config: config,
+		key:    k,
+		next:   next,
+	}, nil
+}
+
+func checkCookieConfig(config *Config) error {
+	if config.CheckCookie && len(config.CookieName) == 0 {
+		return fmt.Errorf("cookieName cannot be empty when checkCookie is true")
+	}
+	return nil
+}
+
+func checkHeaderConfig(config *Config) {
 	if config.CheckHeader && len(config.HeaderName) == 0 {
 		config.HeaderName = "Authorization"
 		config.HeaderValuePrefix = "Bearer"
 	}
+}
 
+func checkQueryParamConfigCheck(config *Config) error {
 	if config.CheckQueryParam && len(config.QueryParamName) == 0 {
-		return nil, fmt.Errorf("queryParamName cannot be empty when checkQueryParam is true")
+		return fmt.Errorf("queryParamName cannot be empty when checkQueryParam is true")
 	}
+	return nil
+}
 
+func ssoLoginURLConfigCheck(config *Config) error {
 	if (config.CheckHeader || config.CheckCookie || config.CheckQueryParam) && len(config.SsoLoginURL) == 0 {
-		return nil, fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader or checkQueryParam is true")
+		return fmt.Errorf("ssoLoginURL cannot be empty when checkCookie or checkHeader or checkQueryParam is true")
 	}
+	return nil
+}
 
-	var k *rsa.PublicKey
+func parsePublicKey(config *Config) (k *rsa.PublicKey, err error) {
 	if config.CheckHeader || config.CheckCookie {
 		if len(config.SignKey) == 0 {
 			return nil, fmt.Errorf("signKey cannot be empty when checkCookie or checkHeader is true")
@@ -75,13 +116,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 			return nil, fmt.Errorf("parse pk error: %w", err)
 		}
 	}
-
-	return &JwtPlugin{
-		name:   name,
-		config: config,
-		key:    k,
-		next:   next,
-	}, nil
+	return
 }
 
 func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
@@ -99,7 +134,6 @@ func (j *JwtPlugin) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	t := getToken(req, j.config)
 	if len(t) == 0 {
-
 		if !redirectWithCookie(j.config, rw, req) {
 			log.Println("jwt.ServeHTTP jwt token is nil, redirect to login!")
 			redirectToLogin(j.config, rw, req)
@@ -178,7 +212,7 @@ func redirectWithCookie(c *Config, rw http.ResponseWriter, req *http.Request) bo
 	}
 
 	qry.Del(c.QueryParamName)
-	req.URL.RawQuery = qry.Encode()
+	req.URL.RawQuery = EncodeQuery(qry)
 
 	var b strings.Builder
 	b.WriteString("https://")
@@ -209,6 +243,33 @@ func redirectWithCookie(c *Config, rw http.ResponseWriter, req *http.Request) bo
 	}
 	log.Println("jwt.ServeHTTP jwt token is nil, redirect to cookie!")
 	return true
+}
+
+func EncodeQuery(qry url.Values) string {
+	if qry == nil {
+		return ""
+	}
+	var buf strings.Builder
+	keys := make([]string, 0, len(qry))
+	for k := range qry {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		vs := qry[k]
+		keyEscaped := url.QueryEscape(k)
+		for _, v := range vs {
+			if buf.Len() > 0 {
+				buf.WriteByte('&')
+			}
+			buf.WriteString(keyEscaped)
+			if len(v) > 0 {
+				buf.WriteByte('=')
+				buf.WriteString(url.QueryEscape(v))
+			}
+		}
+	}
+	return buf.String()
 }
 
 func redirectToLogin(c *Config, rw http.ResponseWriter, req *http.Request) {

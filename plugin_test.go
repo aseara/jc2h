@@ -2,6 +2,7 @@ package jc2h_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -150,6 +151,16 @@ func TestCookieCheck(t *testing.T) {
 	}
 
 	assertReqHeader(t, req, cfg.InjectHeader, token)
+}
+
+func TestRequestQueryEncode(t *testing.T) {
+	ctx := context.Background()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://localhost?a&b=1&c", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	qry := req.URL.Query()
+	fmt.Print("rui: ", jc2h.EncodeQuery(qry), "\n")
 }
 
 func createToken() string {
